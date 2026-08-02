@@ -33,7 +33,14 @@ st.set_page_config(
 # ==========================
 
 df = pd.read_csv(DATA_PATH)
-
+dataset_stats = {
+    "Tenure": df["Tenure"].mean(),
+    "Service_Score": df["Service_Score"].mean(),
+    "CC_Contacted_LY": df["CC_Contacted_LY"].mean(),
+    "cashback": df["cashback"].mean(),
+    "rev_per_month": df["rev_per_month"].mean(),
+    "CC_Agent_Score": df["CC_Agent_Score"].mean()
+}
 st.subheader("Project Workflow")
 
 c1,c2,c3 = st.columns(3)
@@ -379,182 +386,167 @@ elif page == "🤖 Model Performance":
 
 elif page == "🎯 Live Prediction":
 
-    st.title("🎯 Live Complaint Prediction")
+    st.title("🎯 Telecom CRM - Complaint Prediction")
 
     st.write(
-        "Enter the customer information below to predict whether the customer is likely to raise a complaint."
+        "Search a customer using Account ID, review the customer profile, and predict complaint risk."
     )
 
     st.divider()
 
-    col1, col2 = st.columns(2)
+    # --------------------------------------------
+    # Search Customer
+    # --------------------------------------------
 
-    # ==========================
-    # LEFT COLUMN
-    # ==========================
+    account_id = st.number_input(
+        "Customer Account ID",
+        min_value=int(df["AccountID"].min()),
+        max_value=int(df["AccountID"].max()),
+        value=int(df["AccountID"].min()),
+        step=1
+    )
+
+    col1, col2 = st.columns([1, 4])
 
     with col1:
 
-        tenure = st.number_input(
-            "Tenure",
-            min_value=0,
-            max_value=100,
-            value=10
-        )
+        if st.button("🔍 Load Customer"):
 
-        city = st.selectbox(
-            "City Tier",
-            sorted(df["City_Tier"].dropna().unique())
-        )
+            customer = df[df["AccountID"] == account_id]
 
-        contacted = st.number_input(
-            "Customer Care Contacts Last Year",
-            min_value=0,
-            max_value=150,
-            value=10
-        )
+            if customer.empty:
 
-        payment = st.selectbox(
-            "Payment Method",
-            sorted(df["Payment"].dropna().unique())
-        )
+                st.error("Customer not found.")
 
-        gender = st.selectbox(
-            "Gender",
-            sorted(df["Gender"].dropna().unique())
-        )
+                if "customer" in st.session_state:
+                    del st.session_state["customer"]
 
-        service = st.slider(
-            "Service Score",
-            0,
-            5,
-            3
-        )
+            else:
 
-        users = st.slider(
-            "Account User Count",
-            1,
-            6,
-            3
-        )
+                st.session_state["customer"] = customer.iloc[0]
 
-        segment = st.selectbox(
-            "Account Segment",
-            sorted(df["account_segment"].dropna().unique())
-        )
+                st.success("Customer Loaded Successfully")
 
-    # ==========================
-    # RIGHT COLUMN
-    # ==========================
+    # --------------------------------------------
+    # Show Customer
+    # --------------------------------------------
 
-    with col2:
+    if "customer" in st.session_state:
 
-        agent = st.slider(
-            "Customer Care Agent Score",
-            1,
-            5,
-            3
-        )
+        customer = st.session_state["customer"]
 
-        marital = st.selectbox(
-            "Marital Status",
-            sorted(df["Marital_Status"].dropna().unique())
-        )
+        st.divider()
 
-        revenue = st.number_input(
-            "Revenue Per Month",
-            value=1000.0
-        )
+        st.subheader("📋 Customer Profile")
 
-        growth = st.number_input(
-            "Revenue Growth YoY",
-            value=10.0
-        )
+        c1, c2, c3 = st.columns(3)
 
-        coupon = st.number_input(
-            "Coupons Used for Payment",
-            min_value=0,
-            max_value=100,
-            value=1
-        )
+        with c1:
 
-        days = st.number_input(
-            "Days Since Last Customer Care Contact",
-            min_value=0,
-            max_value=365,
-            value=5
-        )
+            st.metric("Account ID", int(customer["AccountID"]))
+            st.metric("Gender", customer["Gender"])
+            st.metric("Tenure", customer["Tenure"])
+            st.metric("City Tier", customer["City_Tier"])
+            st.metric("Login Device", customer["Login_device"])
 
-        cashback = st.number_input(
-            "Cashback",
-            value=150.0
-        )
+        with c2:
 
-        device = st.selectbox(
-            "Login Device",
-            sorted(df["Login_device"].dropna().unique())
-        )
+            st.metric("Segment", customer["account_segment"])
+            st.metric("Payment", customer["Payment"])
+            st.metric("Revenue", customer["rev_per_month"])
+            st.metric("Revenue Growth", customer["rev_growth_yoy"])
+            st.metric("Cashback", customer["cashback"])
 
-    st.divider()
+        with c3:
 
-    # ==========================
-    # Prediction
-    # ==========================
+            st.metric("Service Score", customer["Service_Score"])
+            st.metric("Agent Score", customer["CC_Agent_Score"])
+            st.metric("Support Contacts", customer["CC_Contacted_LY"])
+            st.metric("Marital Status", customer["Marital_Status"])
+            st.metric("Coupons Used", customer["coupon_used_for_payment"])
 
-    if st.button("🔮 Predict Complaint"):
+        st.divider()
 
-        input_data = pd.DataFrame({
+        # --------------------------------------------
+        # Predict
+        # --------------------------------------------
 
-            "Tenure": [tenure],
-            "City_Tier": [city],
-            "CC_Contacted_LY": [contacted],
-            "Payment": [payment],
-            "Gender": [gender],
-            "Service_Score": [service],
-            "Account_user_count": [users],
-            "account_segment": [segment],
-            "CC_Agent_Score": [agent],
-            "Marital_Status": [marital],
-            "rev_per_month": [revenue],
-            "rev_growth_yoy": [growth],
-            "coupon_used_for_payment": [coupon],
-            "Day_Since_CC_connect": [days],
-            "cashback": [cashback],
-            "Login_device": [device]
+        if st.button("🚀 Predict Complaint Risk"):
 
-        })
+            input_data = pd.DataFrame({
 
-        prediction = model.predict(input_data)[0]
+                "Tenure": [customer["Tenure"]],
+                "City_Tier": [customer["City_Tier"]],
+                "CC_Contacted_LY": [customer["CC_Contacted_LY"]],
+                "Payment": [customer["Payment"]],
+                "Gender": [customer["Gender"]],
+                "Service_Score": [customer["Service_Score"]],
+                "Account_user_count": [customer["Account_user_count"]],
+                "account_segment": [customer["account_segment"]],
+                "CC_Agent_Score": [customer["CC_Agent_Score"]],
+                "Marital_Status": [customer["Marital_Status"]],
+                "rev_per_month": [customer["rev_per_month"]],
+                "rev_growth_yoy": [customer["rev_growth_yoy"]],
+                "coupon_used_for_payment": [customer["coupon_used_for_payment"]],
+                "Day_Since_CC_connect": [customer["Day_Since_CC_connect"]],
+                "cashback": [customer["cashback"]],
+                "Login_device": [customer["Login_device"]]
 
-        probability = model.predict_proba(input_data)[0][1]
+            })
 
-        st.subheader("Prediction Result")
+            prediction = model.predict(input_data)[0]
+
+            probability = model.predict_proba(input_data)[0][1]
+
+            st.session_state["prediction"] = prediction
+            st.session_state["probability"] = probability
+
+    # --------------------------------------------
+    # Show Prediction
+    # --------------------------------------------
+
+    if "prediction" in st.session_state:
+
+        prediction = st.session_state["prediction"]
+        probability = st.session_state["probability"]
+
+        st.divider()
+
+        st.subheader("📊 Prediction Result")
 
         st.metric(
             "Complaint Probability",
             f"{probability*100:.2f}%"
         )
 
+        if probability < 0.30:
+
+            st.success("🟢 LOW RISK")
+
+        elif probability < 0.70:
+
+            st.warning("🟠 MEDIUM RISK")
+
+        else:
+
+            st.error("🔴 HIGH RISK")
+
         if prediction == 1:
 
             st.error(
-                "⚠️ This customer is likely to raise a complaint."
+                "Customer is likely to raise a complaint."
             )
 
         else:
 
             st.success(
-                "✅ This customer is unlikely to raise a complaint."
+                "Customer is unlikely to raise a complaint."
             )
-
-        st.divider()
 
         result = pd.DataFrame({
 
-            "Complaint Probability (%)": [
-                round(probability * 100, 2)
-            ],
-
+            "Account ID": [customer["AccountID"]],
+            "Probability (%)": [round(probability * 100, 2)],
             "Prediction": [
                 "Complaint"
                 if prediction == 1
@@ -569,12 +561,69 @@ elif page == "🎯 Live Prediction":
 
             result.to_csv(index=False),
 
-            file_name="prediction.csv",
+            "prediction.csv",
 
-            mime="text/csv"
+            "text/csv"
 
         )
+    reasons = []
 
+if customer = st.session_state["customer"]["Service_Score"] < dataset_stats["Service_Score"]:
+    reasons.append(
+        f"• Service Score ({customer['Service_Score']}) is below the dataset average ({dataset_stats['Service_Score']:.2f})."
+    )
+
+if customer["CC_Contacted_LY"] > dataset_stats["CC_Contacted_LY"]:
+    reasons.append(
+        f"• Customer contacted support {int(customer['CC_Contacted_LY'])} times last year, above the dataset average ({dataset_stats['CC_Contacted_LY']:.1f})."
+    )
+
+if customer["cashback"] < dataset_stats["cashback"]:
+    reasons.append(
+        f"• Cashback received is below the dataset average."
+    )
+
+if customer["Tenure"] < dataset_stats["Tenure"]:
+    reasons.append(
+        f"• Customer tenure is shorter than the average customer."
+    )
+
+if customer["rev_per_month"] < dataset_stats["rev_per_month"]:
+    reasons.append(
+        f"• Monthly revenue is below the dataset average."
+    )
+
+st.subheader("🔍 Why this prediction?")
+
+if reasons:
+    for reason in reasons:
+        st.write(reason)
+else:
+    st.success(
+        "No major risk indicators stand out compared with the overall customer base."
+    )
+
+actions = []
+
+if customer["Service_Score"] < dataset_stats["Service_Score"]:
+    actions.append("Improve service quality and follow up with the customer.")
+
+if customer["CC_Contacted_LY"] > dataset_stats["CC_Contacted_LY"]:
+    actions.append("Assign a senior support agent for future interactions.")
+
+if customer["cashback"] < dataset_stats["cashback"]:
+    actions.append("Consider a retention offer or cashback incentive.")
+
+if customer["Tenure"] < dataset_stats["Tenure"]:
+    actions.append("Provide onboarding support and proactive engagement.")
+
+st.subheader("💡 Recommended Actions")
+
+if actions:
+    for action in actions:
+        st.write(f"✅ {action}")
+else:
+    st.success("No specific intervention is recommended at this time.")
 
 
 st.sidebar.markdown("---")
