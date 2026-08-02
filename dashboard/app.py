@@ -35,11 +35,14 @@ st.set_page_config(
 df = pd.read_csv(DATA_PATH)
 dataset_stats = {
     "Tenure": df["Tenure"].mean(),
+    "City_Tier": df["City_Tier"].mean(),
     "Service_Score": df["Service_Score"].mean(),
+    "CC_Agent_Score": df["CC_Agent_Score"].mean(),
     "CC_Contacted_LY": df["CC_Contacted_LY"].mean(),
-    "cashback": df["cashback"].mean(),
     "rev_per_month": df["rev_per_month"].mean(),
-    "CC_Agent_Score": df["CC_Agent_Score"].mean()
+    "rev_growth_yoy": df["rev_growth_yoy"].mean(),
+    "cashback": df["cashback"].mean(),
+    "coupon_used_for_payment": df["coupon_used_for_payment"].mean()
 }
 st.subheader("Project Workflow")
 
@@ -394,9 +397,9 @@ elif page == "🎯 Live Prediction":
 
     st.divider()
 
-    # --------------------------------------------
+    # =====================================================
     # Search Customer
-    # --------------------------------------------
+    # =====================================================
 
     account_id = st.number_input(
         "Customer Account ID",
@@ -406,30 +409,31 @@ elif page == "🎯 Live Prediction":
         step=1
     )
 
-    col1, col2 = st.columns([1, 4])
+    if st.button("🔍 Load Customer"):
 
-    with col1:
+        customer = df[df["AccountID"] == account_id]
 
-        if st.button("🔍 Load Customer"):
+        if customer.empty:
 
-            customer = df[df["AccountID"] == account_id]
+            st.error("Customer not found.")
 
-            if customer.empty:
+            st.session_state.pop("customer", None)
+            st.session_state.pop("prediction", None)
+            st.session_state.pop("probability", None)
 
-                st.error("Customer not found.")
+        else:
 
-                if "customer" in st.session_state:
-                    del st.session_state["customer"]
+            st.session_state["customer"] = customer.iloc[0]
 
-            else:
+            st.success("Customer Loaded Successfully")
 
-                st.session_state["customer"] = customer.iloc[0]
+    # =====================================================
+    # Customer Profile
+    # =====================================================
 
-                st.success("Customer Loaded Successfully")
-
-    # --------------------------------------------
-    # Show Customer
-    # --------------------------------------------
+    # =====================================================
+# Customer Profile
+# =====================================================
 
     if "customer" in st.session_state:
 
@@ -439,37 +443,99 @@ elif page == "🎯 Live Prediction":
 
         st.subheader("📋 Customer Profile")
 
-        c1, c2, c3 = st.columns(3)
+        # -------------------------------------------------
+        # Basic Customer Information
+        # -------------------------------------------------
 
-        with c1:
+        c1, c2, c3, c4 = st.columns(4)
 
-            st.metric("Account ID", int(customer["AccountID"]))
-            st.metric("Gender", customer["Gender"])
-            st.metric("Tenure", customer["Tenure"])
-            st.metric("City Tier", customer["City_Tier"])
-            st.metric("Login Device", customer["Login_device"])
+        c1.metric("Account ID", int(customer["AccountID"]))
+        c2.metric("Gender", customer["Gender"])
+        c3.metric("Segment", customer["account_segment"])
+        c4.metric("Payment", customer["Payment"])
 
-        with c2:
+        st.markdown("### 📊 Customer vs Dataset Comparison")
 
-            st.metric("Segment", customer["account_segment"])
-            st.metric("Payment", customer["Payment"])
-            st.metric("Revenue", customer["rev_per_month"])
-            st.metric("Revenue Growth", customer["rev_growth_yoy"])
-            st.metric("Cashback", customer["cashback"])
+        comparison_data = [
 
-        with c3:
+            {
+                "Feature": "Tenure",
+                "Customer": round(customer["Tenure"],2),
+                "Dataset Avg": round(dataset_stats["Tenure"],2),
+                "Status": "🔴 Below Avg" if customer["Tenure"] < dataset_stats["Tenure"] else "🟢 Above Avg"
+            },
 
-            st.metric("Service Score", customer["Service_Score"])
-            st.metric("Agent Score", customer["CC_Agent_Score"])
-            st.metric("Support Contacts", customer["CC_Contacted_LY"])
-            st.metric("Marital Status", customer["Marital_Status"])
-            st.metric("Coupons Used", customer["coupon_used_for_payment"])
+            {
+                "Feature": "City Tier",
+                "Customer": customer["City_Tier"],
+                "Dataset Avg": round(dataset_stats["City_Tier"],2),
+                "Status": "-"
+            },
+
+            {
+                "Feature": "Service Score",
+                "Customer": round(customer["Service_Score"],2),
+                "Dataset Avg": round(dataset_stats["Service_Score"],2),
+                "Status": "🔴 Below Avg" if customer["Service_Score"] < dataset_stats["Service_Score"] else "🟢 Above Avg"
+            },
+
+            {
+                "Feature": "Agent Score",
+                "Customer": round(customer["CC_Agent_Score"],2),
+                "Dataset Avg": round(dataset_stats["CC_Agent_Score"],2),
+                "Status": "🔴 Below Avg" if customer["CC_Agent_Score"] < dataset_stats["CC_Agent_Score"] else "🟢 Above Avg"
+            },
+
+            {
+                "Feature": "Support Contacts",
+                "Customer": int(customer["CC_Contacted_LY"]),
+                "Dataset Avg": round(dataset_stats["CC_Contacted_LY"],2),
+                "Status": "🔴 Above Avg" if customer["CC_Contacted_LY"] > dataset_stats["CC_Contacted_LY"] else "🟢 Below Avg"
+            },
+
+            {
+                "Feature": "Revenue / Month",
+                "Customer": round(customer["rev_per_month"],2),
+                "Dataset Avg": round(dataset_stats["rev_per_month"],2),
+                "Status": "🔴 Below Avg" if customer["rev_per_month"] < dataset_stats["rev_per_month"] else "🟢 Above Avg"
+            },
+
+            {
+                "Feature": "Revenue Growth",
+                "Customer": round(customer["rev_growth_yoy"],2),
+                "Dataset Avg": round(dataset_stats["rev_growth_yoy"],2),
+                "Status": "🔴 Below Avg" if customer["rev_growth_yoy"] < dataset_stats["rev_growth_yoy"] else "🟢 Above Avg"
+            },
+
+            {
+                "Feature": "Cashback",
+                "Customer": round(customer["cashback"],2),
+                "Dataset Avg": round(dataset_stats["cashback"],2),
+                "Status": "🔴 Below Avg" if customer["cashback"] < dataset_stats["cashback"] else "🟢 Above Avg"
+            },
+
+            {
+                "Feature": "Coupons Used",
+                "Customer": int(customer["coupon_used_for_payment"]),
+                "Dataset Avg": round(dataset_stats["coupon_used_for_payment"],2),
+                "Status": "🔴 Below Avg" if customer["coupon_used_for_payment"] < dataset_stats["coupon_used_for_payment"] else "🟢 Above Avg"
+            }
+
+        ]
+
+        comparison_df = pd.DataFrame(comparison_data)
+
+        st.dataframe(
+            comparison_df,
+            width="stretch",
+            hide_index=True
+        )
 
         st.divider()
 
-        # --------------------------------------------
-        # Predict
-        # --------------------------------------------
+        # =====================================================
+        # Prediction
+        # =====================================================
 
         if st.button("🚀 Predict Complaint Risk"):
 
@@ -495,18 +561,21 @@ elif page == "🎯 Live Prediction":
             })
 
             prediction = model.predict(input_data)[0]
-
             probability = model.predict_proba(input_data)[0][1]
 
             st.session_state["prediction"] = prediction
             st.session_state["probability"] = probability
 
-    # --------------------------------------------
-    # Show Prediction
-    # --------------------------------------------
+    # =====================================================
+    # Prediction Result
+    # =====================================================
 
-    if "prediction" in st.session_state:
+    if (
+        "prediction" in st.session_state
+        and "customer" in st.session_state
+    ):
 
+        customer = st.session_state["customer"]
         prediction = st.session_state["prediction"]
         probability = st.session_state["probability"]
 
@@ -518,18 +587,39 @@ elif page == "🎯 Live Prediction":
             "Complaint Probability",
             f"{probability*100:.2f}%"
         )
+        st.progress(float(probability))
 
+        c1, c2, c3 = st.columns(3)
+
+        with c1:
+            st.caption("🟢 LOW")
+
+        with c2:
+            st.caption("🟡 MEDIUM")
+
+        with c3:
+            st.caption("🔴 HIGH")
+            
         if probability < 0.30:
 
-            st.success("🟢 LOW RISK")
+            st.success(
+                "🟢 LOW RISK\n\n"
+                "Customer currently shows very low probability of raising a complaint."
+            )
 
         elif probability < 0.70:
 
-            st.warning("🟠 MEDIUM RISK")
+            st.warning(
+            "🟠 MEDIUM RISK\n\n"
+            "Some behavioral patterns indicate a moderate complaint risk."
+            )
 
         else:
 
-            st.error("🔴 HIGH RISK")
+            st.error(
+            "🔴 HIGH RISK\n\n"
+            "Customer closely resembles historical complaint cases."
+            )
 
         if prediction == 1:
 
@@ -543,21 +633,165 @@ elif page == "🎯 Live Prediction":
                 "Customer is unlikely to raise a complaint."
             )
 
+        # =====================================================
+        # Why Prediction
+        # =====================================================
+
+        st.subheader("🔍 Why this prediction?")
+
+        # =====================================================
+        # Customer Insights
+        # =====================================================
+
+        positive = []
+        risk = []
+        actions = []
+
+        # Positive Indicators
+
+        if customer["Service_Score"] >= dataset_stats["Service_Score"]:
+            positive.append("Good service quality score.")
+
+        if customer["Tenure"] >= dataset_stats["Tenure"]:
+            positive.append("Customer has been with the company longer than average.")
+
+        if customer["rev_growth_yoy"] >= dataset_stats["rev_growth_yoy"]:
+            positive.append("Healthy revenue growth.")
+
+        if customer["CC_Contacted_LY"] <= dataset_stats["CC_Contacted_LY"]:
+            positive.append("Customer rarely contacts customer support.")
+
+        if customer["cashback"] >= dataset_stats["cashback"]:
+            positive.append("Customer receives competitive cashback benefits.")
+
+        # Risk Indicators
+
+        if customer["Service_Score"] < dataset_stats["Service_Score"]:
+            risk.append("Service quality score is below average.")
+            actions.append("Improve service quality through proactive follow-up.")
+
+        if customer["CC_Contacted_LY"] > dataset_stats["CC_Contacted_LY"]:
+            risk.append(
+                f"Customer contacted support {int(customer['CC_Contacted_LY'])} times last year."
+            )
+            actions.append("Assign a senior support representative.")
+
+        if customer["Tenure"] < dataset_stats["Tenure"]:
+            risk.append("Customer tenure is shorter than average.")
+            actions.append("Provide onboarding assistance and regular engagement.")
+
+        if customer["cashback"] < dataset_stats["cashback"]:
+            risk.append("Cashback received is below the average customer.")
+            actions.append("Offer a retention incentive or cashback.")
+
+        if customer["rev_per_month"] < dataset_stats["rev_per_month"]:
+            risk.append("Monthly revenue is below the dataset average.")
+            actions.append("Recommend personalized plans to increase engagement.")
+
+        # =====================================================
+        # Positive Indicators
+        # =====================================================
+
+        st.subheader("🟢 Customer Strengths")
+
+        if positive:
+            for item in positive:
+                st.info("✔ " + item)
+        else:
+            st.info("No major positive indicators identified.")
+
+        # =====================================================
+        # Risk Indicators
+        # =====================================================
+
+        st.subheader("⚠ Risk Factors")
+
+        if risk:
+            for item in risk:
+                st.warning("⚠ " + item)
+        else:
+            st.success("No significant risk indicators detected.")
+
+        # =====================================================
+        # AI Assessment
+        # =====================================================
+
+        st.subheader("🧠 AI Assessment")
+
+        if probability >= 0.70:
+
+            st.error(f"""
+        The Random Forest model estimates a **{probability*100:.1f}%** probability that this customer will raise a complaint.
+
+        Although the customer may possess some positive characteristics, the combination of multiple risk factors closely matches historical complaint behaviour observed in the training dataset.
+
+        **Overall Risk Assessment:** HIGH
+        """)
+
+        elif probability >= 0.30:
+
+            st.warning(f"""
+        The model estimates a **{probability*100:.1f}%** probability of complaint.
+
+        The customer's profile contains a balance of positive and negative behavioural indicators. Monitoring and proactive engagement are recommended.
+
+        **Overall Risk Assessment:** MEDIUM
+        """)
+
+        else:
+
+            st.info(f"""
+        The Random Forest model estimates only **{probability*100:.1f}%** probability that this customer will raise a complaint.
+
+        Although a few minor warning signs exist, the overall customer profile is similar to historical customers who did not raise complaints.
+
+        **Overall Risk Assessment:** LOW
+        """)
+
+        # =====================================================
+        # Recommended Actions
+        # =====================================================
+
+        st.subheader("💡 Recommended Actions")
+
+        priority = 1
+
+        for action in sorted(set(actions)):
+
+            st.success(f"**Priority {priority}:** {action}")
+
+            priority += 1
+              
+        st.divider()
+
+        with st.expander("Model Information"):
+
+            st.write("Algorithm : Random Forest")
+
+            st.write("Training Samples :", len(df))
+
+            st.write("Features Used : 16")
+
+            st.write("Prediction Threshold : 50%")
+
+            st.write("Purpose : Predict customer complaint probability.")   
+        # =====================================================
+        # Download Prediction
+        # =====================================================
+
         result = pd.DataFrame({
 
             "Account ID": [customer["AccountID"]],
             "Probability (%)": [round(probability * 100, 2)],
             "Prediction": [
-                "Complaint"
-                if prediction == 1
-                else "No Complaint"
+                "Complaint" if prediction == 1 else "No Complaint"
             ]
 
         })
 
         st.download_button(
 
-            "⬇ Download Prediction",
+            "📄 Export Customer Risk Report",
 
             result.to_csv(index=False),
 
@@ -566,65 +800,6 @@ elif page == "🎯 Live Prediction":
             "text/csv"
 
         )
-    reasons = []
-
-if customer = st.session_state["customer"]["Service_Score"] < dataset_stats["Service_Score"]:
-    reasons.append(
-        f"• Service Score ({customer['Service_Score']}) is below the dataset average ({dataset_stats['Service_Score']:.2f})."
-    )
-
-if customer["CC_Contacted_LY"] > dataset_stats["CC_Contacted_LY"]:
-    reasons.append(
-        f"• Customer contacted support {int(customer['CC_Contacted_LY'])} times last year, above the dataset average ({dataset_stats['CC_Contacted_LY']:.1f})."
-    )
-
-if customer["cashback"] < dataset_stats["cashback"]:
-    reasons.append(
-        f"• Cashback received is below the dataset average."
-    )
-
-if customer["Tenure"] < dataset_stats["Tenure"]:
-    reasons.append(
-        f"• Customer tenure is shorter than the average customer."
-    )
-
-if customer["rev_per_month"] < dataset_stats["rev_per_month"]:
-    reasons.append(
-        f"• Monthly revenue is below the dataset average."
-    )
-
-st.subheader("🔍 Why this prediction?")
-
-if reasons:
-    for reason in reasons:
-        st.write(reason)
-else:
-    st.success(
-        "No major risk indicators stand out compared with the overall customer base."
-    )
-
-actions = []
-
-if customer["Service_Score"] < dataset_stats["Service_Score"]:
-    actions.append("Improve service quality and follow up with the customer.")
-
-if customer["CC_Contacted_LY"] > dataset_stats["CC_Contacted_LY"]:
-    actions.append("Assign a senior support agent for future interactions.")
-
-if customer["cashback"] < dataset_stats["cashback"]:
-    actions.append("Consider a retention offer or cashback incentive.")
-
-if customer["Tenure"] < dataset_stats["Tenure"]:
-    actions.append("Provide onboarding support and proactive engagement.")
-
-st.subheader("💡 Recommended Actions")
-
-if actions:
-    for action in actions:
-        st.write(f"✅ {action}")
-else:
-    st.success("No specific intervention is recommended at this time.")
-
 
 st.sidebar.markdown("---")
 st.sidebar.caption("Developed by Amisha")
